@@ -18,20 +18,39 @@ const connection = document.getElementById('connection');
 
 // ------------------------------------------------------------------- socket
 
+// A resume can fail for reasons that are not permanent — a redeploy still
+// coming up, or a socket that reconnected a moment before the server was ready
+// to answer for the room. Throwing the token away on the first refusal costs
+// the player their seat for good, so give it a few tries first.
+const RESUME_TRIES = 3;
+const RESUME_BACKOFF = 700;
+
+let resumeAttempt = 0;
+let resuming = false;
+
+const tryResume = () => {
+  const saved = seatMemory.load();
+  if (!saved) return;
+  resuming = true;
+  net.send(C.RESUME, { code: saved.code, resumeToken: saved.token });
+};
+
 const net = createNet({
   onStatus: (status) => set({ status }),
   onFrame: handleFrame,
   onOpen: () => {
     // A reconnect must reclaim the seat before anything else, otherwise the
     // server sees a brand-new client and the old seat sits there disconnected.
-    const saved = seatMemory.load();
-    if (saved) net.send(C.RESUME, { code: saved.code, resumeToken: saved.token });
+    resumeAttempt = 0;
+    tryResume();
   },
 });
 
 function handleFrame(frame) {
   switch (frame.t) {
     case S.WELCOME:
+      resuming = false;
+      resumeAttempt = 0;
       seatMemory.save(frame.roomCode, frame.resumeToken);
       set({ welcome: frame, error: null });
       break;
@@ -58,9 +77,23 @@ function handleFrame(frame) {
       break;
 
     case S.ERROR:
-      // A refused resume means the seat is gone for good; holding the token
-      // would just make every future reconnect fail the same way.
-      if (frame.code === 'ERR_BAD_TOKEN' || frame.code === 'ERR_NO_ROOM') seatMemory.clear();
+      // A token the server actively rejects is proof the seat is gone, so the
+      // token is worthless and holding it would fail the same way forever.
+      if (frame.code === 'ERR_BAD_TOKEN') seatMemory.clear();
+
+      // `No room with that code` during a resume is weaker evidence: the room
+      // may be mid-redeploy, or this socket may have beaten the server to it.
+      // Retry quietly before giving up, and say nothing in the meantime — a
+      // banner for a condition that fixes itself is just noise.
+      if (resuming && frame.code === 'ERR_NO_ROOM') {
+        resuming = false;
+        if (++resumeAttempt < RESUME_TRIES) {
+          setTimeout(tryResume, RESUME_BACKOFF * resumeAttempt);
+          return;
+        }
+        seatMemory.clear();
+      }
+
       if (frame.fatal) set({ welcome: null, room: null, view: null });
       set({ error: frame, busy: false });
       break;

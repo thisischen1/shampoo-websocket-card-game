@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createStaticHandler } from './static.js';
 import { attachSockets } from './socket.js';
+import { INSTANCE_ID, warnIfNotAlone } from './instance.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..', '..');
@@ -25,8 +26,11 @@ export function createApp(options = {}) {
       const { pathname } = new URL(req.url, 'http://localhost');
 
       if (pathname === '/healthz') {
+        // `instance` is here to be compared, not read: curl this twice, and if
+        // the id changes you are running more than one instance and room codes
+        // are silently split across them.
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true }));
+        res.end(JSON.stringify({ ok: true, instance: INSTANCE_ID }));
         return;
       }
 
@@ -53,6 +57,8 @@ const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.arg
 if (isMain) {
   const server = createApp();
   server.listen(PORT, HOST, () => {
-    console.log(`Shampoo listening on http://localhost:${PORT}`);
+    console.log(`Shampoo listening on http://localhost:${PORT} (instance ${INSTANCE_ID})`);
+    // Not awaited: a diagnostic lookup must never delay accepting players.
+    warnIfNotAlone();
   });
 }

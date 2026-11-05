@@ -58,10 +58,27 @@ and it has exactly one consequence you must respect when you deploy:
 > **Run exactly one instance. Turn autoscaling off.**
 >
 > There is no shared store, so a second instance holds a different set of
-> rooms. Two players who typed the same code would land on different machines,
-> sit in separate empty lobbies, and never see each other. Nothing would look
-> broken; it would just quietly not work. Both configs below pin the count to
-> one, but it is the setting to re-check after any change to a plan or region.
+> rooms, and a code only exists on the machine that minted it. A player who
+> lands on the wrong one is told **"No room with that code"** — which is a lie.
+> The code is fine; they are talking to the wrong machine. So they retype it,
+> the load balancer sends them somewhere else, it works, and the bug now looks
+> random and unreproducible. That is the real cost: not an outage, but an error
+> message that points at the wrong culprit.
+>
+> Both configs below pin the count to one. It is the setting to re-check after
+> any change to a plan or region.
+
+Two things make a breach of that rule visible instead of mystifying:
+
+```sh
+curl https://your-app.fly.dev/healthz    # {"ok":true,"instance":"3f9a2c81"}
+```
+
+Call it twice. **A changing `instance` means you are running more than one**, and
+room codes are being split across them. On Fly the server also counts its own
+siblings at boot (one AAAA record per machine on `<app>.internal`, so no API
+token needed) and prints an unmissable error naming the fix if it is not alone.
+It still starts — refusing to boot would turn a degraded game into no game.
 
 The code needs nothing added for either platform. It already binds `0.0.0.0`
 and reads `process.env.PORT`, and the browser picks its websocket scheme from
@@ -111,7 +128,8 @@ raise it). Railway reads the `Procfile` and injects `PORT` itself.
 ### Checking the deploy
 
 ```sh
-curl https://your-app.fly.dev/healthz        # {"ok":true}
+curl https://your-app.fly.dev/healthz        # twice — the instance id must not change
+fly status                                   # one machine, started
 ```
 
 Then, from two devices **on cellular, not your wifi** — that is the only way to
