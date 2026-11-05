@@ -1,0 +1,47 @@
+# Rename `app` to whatever `fly launch --no-deploy` gave you, and set
+# `primary_region` to the one nearest the people you play with — every frame of
+# every game crosses it.
+
+app = "shampoo"
+primary_region = "sjc"
+
+# No [build] section on purpose: there is nothing to build, and `fly launch`
+# detects the package.json and writes its own Dockerfile, which runs `npm ci`
+# and then the `start` script.
+
+[env]
+  PORT = "3000"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+
+  # EVERY ROOM LIVES IN THIS PROCESS'S MEMORY. There is no database and no
+  # shared cache, so a second machine would serve players a room the first
+  # machine is holding — they would sit in separate lobbies under one code and
+  # never see each other. These three lines are the whole safety net:
+  #
+  #   - auto_stop_machines  false: a stopped machine is a room full of people
+  #     thrown out mid-game, and Fly stops them on *idle traffic*, which is
+  #     exactly what a table of players thinking looks like.
+  #   - auto_start_machines false: nothing may be woken to take overflow.
+  #   - min_machines_running 1: the floor. `fly scale count 1` sets the ceiling
+  #     to match; run it after every deploy that touches regions or scaling.
+  #
+  # Fly's proxy upgrades websockets without any configuration here, and the
+  # server's own 25s ping (LIMITS.HEARTBEAT_MS) is what keeps a socket from
+  # being judged idle while a player thinks.
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

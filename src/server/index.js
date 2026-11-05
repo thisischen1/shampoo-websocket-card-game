@@ -1,0 +1,58 @@
+import http from 'node:http';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { createStaticHandler } from './static.js';
+import { attachSockets } from './socket.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(__dirname, '..', '..');
+const PUBLIC = join(ROOT, 'public');
+const SHARED = join(ROOT, 'src', 'shared');
+
+const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
+
+// `/shared/` exposes the isomorphic rule modules so the browser imports the
+// exact same files the server does — no build step, no duplicated logic.
+const serveStatic = createStaticHandler([
+  { prefix: '/shared/', root: SHARED },
+  { prefix: '/', root: PUBLIC },
+]);
+
+export function createApp(options = {}) {
+  const server = http.createServer(async (req, res) => {
+    try {
+      const { pathname } = new URL(req.url, 'http://localhost');
+
+      if (pathname === '/healthz') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+        return;
+      }
+
+      const handled = await serveStatic(req, res);
+      if (!handled) {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Not Found');
+      }
+    } catch (err) {
+      console.error('request error', err);
+      if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end('Internal Server Error');
+    }
+  });
+
+  const sockets = attachSockets(server, options);
+  server.on('close', sockets.close);
+  server.sockets = sockets;
+  return server;
+}
+
+// Only listen when run directly, so tests can import and bind to port 0.
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+if (isMain) {
+  const server = createApp();
+  server.listen(PORT, HOST, () => {
+    console.log(`Shampoo listening on http://localhost:${PORT}`);
+  });
+}

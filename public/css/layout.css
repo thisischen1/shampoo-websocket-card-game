@@ -1,0 +1,337 @@
+/* The card table. Mobile portrait is the base layout; one structural
+   breakpoint at 820px re-assigns the grid for desktop and landscape. */
+
+.table-grid {
+  /* A definite height, not a minimum: the rows below can only be asked to give
+     way if the grid knows how much room it actually has. dvh, not vh, so the
+     iOS URL bar collapsing does not hide the action bar. */
+  height: 100dvh;
+  display: grid;
+  grid-template-areas:
+    "pods"
+    "log"
+    "centre"
+    "rescue"
+    "you"
+    "actions";
+  /* minmax(0, …) on the centre, not a bare 1fr: a bare 1fr refuses to go below
+     its content and so pushes the action bar off a short screen. The centre is
+     the one region that can afford to give, and it only ever gives a pixel or
+     two because its contents stay vertically centred. */
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+  gap: 10px;
+  padding: max(8px, env(safe-area-inset-top)) 10px 0;
+}
+
+/* ---- opponents ---- */
+.pods {
+  grid-area: pods;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.pods::-webkit-scrollbar { display: none; }
+
+.pod {
+  --card-w: 30px;
+  flex: none;
+  scroll-snap-align: start;
+  min-width: 104px;
+  display: grid;
+  gap: 5px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+/* Turn indicator #1: a ring on the active pod. */
+.pod.is-turn {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 16px rgba(53, 214, 164, 0.35);
+}
+.pod.is-away { opacity: 0.55; }
+.pod.is-out { opacity: 0.4; }
+
+.pod-head { display: flex; align-items: baseline; gap: 6px; }
+.pod-name {
+  flex: 1;
+  font-size: 0.8rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pod-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Opponent hands overlap hard — they are a volume cue, not a readable row. The
+   overlap is a ratio so a capped fan stays inside the pod at every card size. */
+.pod-hand { display: flex; min-height: 24px; }
+.pod-hand .card + .card { margin-left: calc(var(--card-w) * -0.82); }
+
+.pod-table { display: flex; gap: 6px; }
+.pod-down, .pod-up { display: flex; gap: 2px; }
+
+.pod-status {
+  font-size: 0.64rem;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-height: 0.8em;
+}
+
+/* ---- the log strip ----
+   Lives here rather than in anim.css because it is a layout region, and the
+   breakpoints below need to be able to hide it. */
+.log {
+  grid-area: log;
+  /* Block, not grid: a grid with a capped height divides that height between
+     its rows, so a two-entry history collapsed into two half-height lines
+     instead of showing the newest one whole. Block flow just overflows. */
+  display: block;
+  width: 100%;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  font-size: 0.7rem;
+  line-height: 1.5;
+  text-align: left;
+  /* The collapsed strip is one line; opening it reveals the last ten. A max
+     height rather than a height, so a short history leaves no empty gap — and
+     one that counts the padding and border, because box-sizing is border-box
+     and an em-only value silently clips the single line it exists to show. */
+  max-height: calc(1.5em + 12px);
+  overflow: hidden;
+  transition: max-height 220ms ease;
+}
+.log.is-open { max-height: calc(15em + 12px); overflow-y: auto; }
+.log[hidden] { display: none; }
+
+/* Collapsed, only the newest line is inside the box — which is why the newest
+   line is first in the DOM. Open, the list then reads newest-first too. */
+.log-line {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.log-line:first-child { color: var(--ink); }
+.log-line.is-you:first-child { color: var(--accent); }
+
+/* ---- the centre: stock, pile, burn ---- */
+.table-centre {
+  grid-area: centre;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  justify-items: center;
+  gap: 10px;
+}
+
+.slot { display: grid; gap: 7px; justify-items: center; }
+.slot-pile { --card-w: clamp(58px, 19vw, 104px); }
+.slot-stock, .slot-burn { --card-w: clamp(38px, 11vw, 62px); }
+
+.slot-label {
+  font-size: 0.66rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Stacks overlay their children; only the top one is fully visible. */
+.stack {
+  position: relative;
+  display: grid;
+  min-width: var(--card-w);
+  min-height: calc(var(--card-w) * 1.4);
+}
+.stack > * { grid-area: 1 / 1; }
+.stack.is-empty {
+  border: 1px dashed var(--line);
+  border-radius: calc(var(--card-w) * 0.09);
+}
+
+/* Cards under the pile's top card: visible as depth, never as identity. */
+.pile-under { opacity: 0.9; }
+
+/* The burn pile: dim, desaturated, countable, unreadable. */
+.stack.is-burn > * {
+  filter: grayscale(1) brightness(0.45);
+  opacity: 0.5;
+}
+
+/* ---- your area ---- */
+.you {
+  grid-area: you;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding-bottom: 4px;
+}
+
+.turn-banner {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink-dim);
+  min-height: 1.2em;
+}
+.turn-banner.is-you { color: var(--accent); }
+
+.your-table { display: grid; gap: 4px; justify-items: center; }
+.your-table .card-row { --card-w: clamp(40px, 12vw, 70px); }
+
+/* Face-down cards sit behind the face-up ones, as they do on a real table. */
+#table-facedown { margin-bottom: calc(var(--card-w) * -0.62); }
+
+/* Turn indicator #3: your hand glows when it is your turn. */
+.hand {
+  --card-w: clamp(46px, 15vw, 84px);
+  padding: 8px 6px;
+  border-radius: var(--radius);
+  transition: background 220ms ease, box-shadow 220ms ease;
+  max-width: 100%;
+}
+.is-your-turn .hand {
+  background: rgba(53, 214, 164, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(53, 214, 164, 0.3);
+}
+
+/* A big hand stops fanning and becomes a scrollable strip. */
+.hand.is-wide {
+  justify-content: flex-start;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.hand.is-wide::-webkit-scrollbar { display: none; }
+.hand.is-wide .card { scroll-snap-align: center; }
+
+/* Face-down cards pulse when they are the only thing left to do. */
+.card.is-flippable {
+  cursor: pointer;
+  animation: flip-pulse 1.5s ease-in-out infinite;
+}
+@keyframes flip-pulse {
+  50% { box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(242, 193, 78, 0.4); }
+}
+
+/* The private four-of-a-kind hint. No text, no badge — the glow is the alert. */
+.card.is-bomb {
+  animation: bomb-glow 1.8s ease-in-out infinite;
+}
+@keyframes bomb-glow {
+  0%, 100% { box-shadow: 0 0 0 1px var(--bomb), 0 0 10px rgba(255, 157, 46, 0.45); }
+  50%      { box-shadow: 0 0 0 2px var(--bomb), 0 0 22px rgba(255, 157, 46, 0.75); }
+}
+
+/* ---- action bar ---- */
+.action-bar {
+  grid-area: actions;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 10px 0 max(10px, env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, transparent, rgba(5, 25, 16, 0.75) 45%);
+}
+.action-bar .btn { min-height: 52px; }
+
+/* ---- the host's stalled-seat rescue ----
+   Amber rather than red: the table is stuck, which is a nuisance, not a
+   failure, and the destructive option is the only part that earns red. */
+.rescue {
+  grid-area: rescue;
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(242, 193, 78, 0.08);
+  border: 1px solid rgba(242, 193, 78, 0.4);
+}
+.rescue[hidden] { display: none; }
+
+.rescue-text { font-size: 0.8rem; color: var(--gold); }
+
+.rescue-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.rescue-row .btn { flex: 1 1 auto; }
+.rescue-row .btn[hidden] { display: none; }
+
+/* ---- desktop / landscape ---- */
+@media (min-width: 820px) {
+  .table-grid {
+    grid-template-areas:
+      "pods    pods    pods"
+      "log     log     log"
+      "centre  centre  centre"
+      "rescue  rescue  rescue"
+      "you     you     you"
+      "actions actions actions";
+    max-width: 1100px;
+    margin-inline: auto;
+    padding-inline: 20px;
+  }
+  /* `safe center` centres the pods while they fit and falls back to start-
+     aligned once they do not — plain `center` would push the first pod off the
+     left edge, out of reach of the scroll, in a crowded five-player room. */
+  .pods { justify-content: safe center; }
+  /* 36px, not 38: at 38 a five-player room is ten pixels too wide for the
+     1100px table and the whole row falls back to scrolling. */
+  .pod { --card-w: 36px; min-width: 132px; }
+  .action-bar {
+    grid-template-columns: repeat(2, minmax(0, 220px));
+    justify-content: space-between;
+  }
+}
+
+/* A short landscape phone. There is barely 390px of height here, so shrinking
+   the cards is not enough on its own — your table and your hand stop stacking
+   and sit side by side, which is the only way the action bar stays on screen. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .table-grid { gap: 5px; }
+  .turn-banner { font-size: 0.78rem; }
+
+  /* The log is the first thing to go. It is a catch-up aid, and a player who is
+     holding the phone sideways is watching the table, not reading it. */
+  .log { display: none; }
+
+  .pod { --card-w: 26px; min-width: 96px; padding: 6px; gap: 3px; }
+  /* Clip the opponent's fan to a sliver. The top edges still read as a stack of
+     cards, and the count beside their name was always the precise version. */
+  .pod-hand { min-height: 0; height: 14px; overflow: hidden; }
+
+  .slot-pile { --card-w: 52px; }
+  .slot-stock, .slot-burn { --card-w: 34px; }
+
+  .you {
+    grid-template-areas:
+      "banner banner"
+      "table  hand";
+    grid-template-columns: auto auto;
+    align-items: center;
+  }
+  .turn-banner { grid-area: banner; }
+  .your-table { grid-area: table; }
+  .hand { grid-area: hand; }
+
+  .hand { --card-w: 44px; }
+  .your-table .card-row { --card-w: 36px; }
+
+  .action-bar { padding-top: 5px; }
+  .action-bar .btn { min-height: 44px; }
+}

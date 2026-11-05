@@ -1,0 +1,226 @@
+/* The postgame screen and the win/lose splash that plays over it. */
+
+.over-inner {
+  min-height: 100dvh;
+  display: grid;
+  align-content: center;
+  gap: 20px;
+  width: min(440px, 100%);
+  margin-inline: auto;
+  padding: max(24px, env(safe-area-inset-top)) 22px max(24px, env(safe-area-inset-bottom));
+}
+
+.over-head { text-align: center; display: grid; gap: 7px; }
+
+.over-title {
+  font-size: clamp(1.7rem, 8vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.over-title.is-lose { color: var(--danger); }
+
+/* ---- placements ---- */
+.placements { display: grid; gap: 7px; }
+
+.place-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 48px;
+  padding: 0 15px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+/* The loser's row is the only one that gets colour — the placement list is
+   otherwise a ranking, and ranking everyone in gold flattens the one fact the
+   screen exists to deliver. */
+.place-row.is-last { border-color: var(--danger); color: #ffd9d4; }
+.place-row.is-you { background: var(--surface-hi); }
+
+.place-rank {
+  min-width: 2.6em;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+.place-row.is-last .place-rank { color: var(--danger); }
+.place-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.place-note { font-size: 0.7rem; color: var(--ink-faint); }
+
+.scoreboard tr.is-you td { color: var(--accent); }
+
+.over-controls { display: grid; gap: 10px; }
+
+/* ====================================================================
+   The splash
+   ==================================================================== */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  /* Tappable to skip, but it must not swallow a scroll on the screen beneath
+     once it has faded — hiding it removes it from the hit-test entirely. */
+  cursor: pointer;
+}
+.splash[hidden] { display: none; }
+
+/* The wash is a separate layer from .splash so the lockup can sit at full
+   opacity above a backdrop that is deliberately translucent. */
+.splash-wash {
+  position: absolute;
+  inset: 0;
+  animation: splash-wash-in 260ms ease-out both;
+}
+.is-win .splash-wash {
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 42%, rgba(53, 214, 164, 0.3) 0%, transparent 70%),
+    rgba(4, 22, 15, 0.82);
+}
+/* Cold, flat and desaturated. The win is warm and radial; the loss is a blue
+   sheet with no light in it. */
+.is-lose .splash-wash {
+  background:
+    linear-gradient(180deg, rgba(27, 43, 58, 0.9), rgba(8, 16, 24, 0.94));
+}
+@keyframes splash-wash-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ---- radiating rays, win only ---- */
+.splash-rays {
+  position: absolute;
+  width: 160vmax;
+  height: 160vmax;
+  /* repeating-conic-gradient draws all 24 rays in one paint — the alternative
+     is 24 elements, which is 24 more things to composite for no gain. */
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(255, 255, 255, 0.07) 0deg 4deg,
+    transparent 4deg 15deg
+  );
+  mask: radial-gradient(circle, transparent 14%, #000 42%, transparent 72%);
+  animation: splash-rays 14s linear infinite, splash-wash-in 500ms ease-out both;
+}
+.is-lose .splash-rays { display: none; }
+@keyframes splash-rays { to { rotate: 360deg; } }
+
+/* ---- the lockup ---- */
+.splash-lockup {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  text-align: center;
+  padding: 0 22px;
+}
+
+.splash-kicker {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  animation: splash-fade 400ms 120ms ease-out both;
+}
+
+.splash-title {
+  font-size: clamp(2.8rem, 17vw, 6rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+}
+.splash-sub {
+  color: var(--ink-dim);
+  font-size: 0.95rem;
+  animation: splash-fade 400ms 260ms ease-out both;
+}
+
+/* Win: punches in past its final size and settles back. */
+.is-win .splash-title {
+  background: linear-gradient(180deg, #fff 0%, var(--gold) 55%, #e0a32a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 6px 26px rgba(242, 193, 78, 0.45));
+  animation: splash-punch 620ms cubic-bezier(.16, 1.5, .3, 1) both;
+}
+@keyframes splash-punch {
+  0%   { opacity: 0; scale: 0.5; rotate: -4deg; }
+  60%  { opacity: 1; scale: 1.08; rotate: 1deg; }
+  100% { opacity: 1; scale: 1; rotate: 0deg; }
+}
+
+/* Lose: heavy, late, and it settles *downward* — the whole point is that it
+   lands like something dropped rather than something arriving. */
+.is-lose .splash-title {
+  color: #8fa8bd;
+  text-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  animation: splash-sag 900ms cubic-bezier(.22, .61, .36, 1) both;
+}
+@keyframes splash-sag {
+  0%   { opacity: 0; translate: 0 -26px; scale: 1.14; letter-spacing: 0.06em; }
+  70%  { opacity: 1; translate: 0 6px;   scale: 1;    letter-spacing: -0.04em; }
+  100% { opacity: 1; translate: 0 0;     scale: 1;    letter-spacing: -0.04em; }
+}
+.is-lose .splash-lockup { animation: splash-dim 3400ms ease-in both; }
+@keyframes splash-dim {
+  0%, 55% { opacity: 1; }
+  100%    { opacity: 0.45; }
+}
+
+@keyframes splash-fade {
+  from { opacity: 0; translate: 0 6px; }
+  to   { opacity: 1; translate: 0 0; }
+}
+
+/* ---- confetti ---- */
+.splash-confetti {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.confetti {
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  /* Only translate, rotate and opacity are animated, so every particle stays
+     on the compositor and the shower costs no layout. */
+  will-change: translate, rotate;
+  animation: confetti-fall var(--fall) var(--delay) cubic-bezier(.35, .1, .7, 1) both;
+}
+@keyframes confetti-fall {
+  from { translate: 0 -14vh; rotate: 0deg; opacity: 1; }
+  to   { translate: var(--drift) 108vh; rotate: var(--spin); opacity: 0.85; }
+}
+
+/* ---- reduced motion ----
+   base.css already flattens every duration to 0.01ms, which would make the
+   splash appear and vanish with no transition at all. These rules buy back a
+   plain fade — the result still arrives, it just stops moving. The !important
+   is required to beat base.css's own blanket !important. */
+@media (prefers-reduced-motion: reduce) {
+  .splash-rays { display: none; }
+  .splash-wash,
+  .splash-kicker,
+  .splash-sub,
+  .is-win .splash-title,
+  .is-lose .splash-title {
+    animation: splash-fade 150ms ease-out both !important;
+  }
+  .is-lose .splash-lockup { animation: none !important; }
+}

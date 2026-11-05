@@ -1,0 +1,112 @@
+/* The overlay animations. Everything styled here is a throwaway clone living
+   in .fx-layer — nothing in this file can move a real card. */
+
+.fx-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  /* Clones are positioned in viewport coordinates, so a flight that overshoots
+     the edge must be clipped rather than extend the page. */
+  overflow: hidden;
+}
+
+.fx-ghost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* Scale about the top-left corner so `translate` keeps meaning "where the
+     top-left corner is". With the default centre origin a shrinking card
+     drifts away from the slot it is supposed to be landing in. */
+  transform-origin: 0 0;
+  will-change: translate, scale, rotate, opacity;
+}
+
+/* A card being read aloud — the blind flip. Lifted and ringed so it is clearly
+   the thing to look at, because the player has one beat to see it. */
+.fx-reveal {
+  box-shadow: 0 0 0 2px var(--gold), 0 14px 40px rgba(0, 0, 0, 0.55);
+  animation: fx-reveal-in 260ms cubic-bezier(.2,1.4,.4,1);
+}
+@keyframes fx-reveal-in {
+  from { scale: 0.7; opacity: 0; }
+  to   { scale: 1;   opacity: 1; }
+}
+
+/* ---- the burn ---- */
+
+.fx-flash {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  will-change: scale, opacity;
+  animation-name: fx-flash;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+.fx-flash-burn {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 190, 90, 0.55) 35%, transparent 68%);
+}
+@keyframes fx-flash {
+  from { scale: 0.25; opacity: 0.95; }
+  to   { scale: 1;    opacity: 0; }
+}
+
+/* ---- the 2 ----
+   Deliberately unlike the burn. A thin cool ring that expands and fades: the
+   pile is still there, and the player needs to read "go again", not "gone". */
+.fx-ripple {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 2px solid var(--accent);
+  border-radius: calc(var(--card-w, 70px) * 0.09);
+  will-change: scale, opacity;
+  animation-name: fx-ripple;
+  animation-timing-function: cubic-bezier(.2,.7,.3,1);
+  animation-fill-mode: both;
+}
+@keyframes fx-ripple {
+  from { scale: 1;   opacity: 0.9; }
+  to   { scale: 1.9; opacity: 0; }
+}
+
+/* ---- floating text ---- */
+.fx-shout {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* translate puts the anchor on the rect's top-centre; this pulls the box up
+     and back by half its own width so the text is centred above the card. */
+  transform: translate(-50%, -115%);
+  white-space: nowrap;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+  will-change: translate, opacity;
+  animation-name: fx-shout;
+  animation-timing-function: cubic-bezier(.2,.9,.3,1);
+  animation-fill-mode: both;
+}
+.fx-shout-burn { color: var(--bomb); }
+.fx-shout-two  { color: var(--accent); }
+.fx-shout-out  { color: var(--gold); }
+
+@keyframes fx-shout {
+  0%   { opacity: 0; translate: 0 10px; scale: 0.8; }
+  25%  { opacity: 1; translate: 0 0;    scale: 1.06; }
+  70%  { opacity: 1; translate: 0 -6px; scale: 1; }
+  100% { opacity: 0; translate: 0 -18px; scale: 1; }
+}
+
+/* ---- reduced motion ----
+   base.css already collapses every duration to ~0, which makes the flights and
+   flashes instantaneous rather than absent. That is the correct outcome: the
+   board is painted from the view either way, so there is nothing to restore. */
+@media (prefers-reduced-motion: reduce) {
+  .fx-layer { display: none; }
+}
