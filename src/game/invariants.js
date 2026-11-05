@@ -1,5 +1,7 @@
-// Development/test assertions. Cheap enough to run after every action in tests;
-// the server runs them too, behind a flag, so a desync surfaces immediately.
+// Test-only assertions: the structural truths the engine promises, written as
+// checks so the fuzz test can re-verify all of them after every single action.
+// Nothing in src/server/ imports this — the engine is trusted in production
+// precisely because these run over 20,000 games before it ships.
 
 import { makeDeck, BURN_RANK } from '../shared/cards.js';
 import { topOf, activeZone } from '../shared/rules.js';
@@ -47,10 +49,6 @@ export function assertStateSane(state) {
     // Draw-up guarantees this: you can only be empty-handed once the stock is dry.
     if (state.phase === 'playing' && p.hand.length === 0 && state.stock.length > 0 && !p.out) {
       fail(`seat ${seat} has an empty hand while ${state.stock.length} cards remain in stock`);
-    }
-    // Face-up cards sit on face-down cards, never the reverse.
-    if (p.faceDown.length > p.faceUp.length && p.faceUp.length > 0 && p.hand.length === 0) {
-      // allowed: face-up can be consumed independently. No assertion.
     }
     if (p.out && activeZone(p) !== null) {
       fail(`seat ${seat} is marked out but still holds cards`);
