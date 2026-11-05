@@ -4,6 +4,20 @@ A multiplayer card game for 2–5 players, each on their own phone or laptop.
 One Node process serves the page and runs the game; no build step, no database,
 one runtime dependency (`ws`).
 
+## Why this exists
+
+Shampoo is the card game my friends and I play. It needs a deck, a table, and
+everyone in the same room — and when none of those lined up, we couldn't play.
+I went looking for an online version and there wasn't one worth using, so I
+built it: same rules, no physical cards, everyone on the phone already in their
+hand.
+
+That constraint drove the whole design. Each player sees only their own cards,
+which means the server has to be the single source of truth and the client can
+never be trusted — so there is exactly one function that decides what each seat
+is allowed to see, and a test suite whose job is to prove nothing leaks past it.
+The rest of the engineering below falls out of that one requirement.
+
 ## Running it
 
 Needs **Node 20 or newer** and nothing else — no build step, no database.
@@ -161,6 +175,35 @@ counts only; the pile sends its top card and total, never what is underneath.
 
 Scores live in memory for as long as the room does. Close the room and they are
 gone — there is no database on purpose.
+
+### The part that was actually hard
+
+Not the websockets. The order of operations inside a single turn.
+
+**Burning the pile and getting another turn are two different things**, and
+conflating them is the bug this game invites. A 10 does both. Four of a kind
+does both. A 2 grants another turn and *doesn't* burn — it sits on top, and
+since anything plays on a 2, the follow-up can be any card at all.
+
+Then the steps have to happen in this order, and no other:
+
+```
+1. move the cards onto the pile
+2. draw back up to 3        # before the follow-up turn, so a 2 or 10 is played with a full hand
+3. burn, if the play burns
+4. grant the extra turn
+5. out-check               # and if the player is out, CANCEL the extra turn
+6. game over, if one player is left holding cards
+7. otherwise advance the turn
+```
+
+Step 5 is the whole ballgame. If your last card is a 2, you have earned another
+turn and you have also just run out of cards — hand the turn over anyway and the
+game deadlocks forever on a player with nothing to play. Step 2 sitting above
+step 5 matters too: drawing back up can *keep you in the game*, so refilling has
+to happen before anyone decides you're out.
+
+I did not get this right by reasoning about it. `test/fuzz.test.js` found it.
 
 ## Testing
 
