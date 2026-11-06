@@ -12,10 +12,6 @@ export function mulberry32(seed) {
   };
 }
 
-export function randomSeed() {
-  return (Math.random() * 0xffffffff) >>> 0;
-}
-
 /** Fisher-Yates on a copy. */
 export function shuffle(arr, rng) {
   const out = [...arr];

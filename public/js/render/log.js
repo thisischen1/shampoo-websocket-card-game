@@ -76,10 +76,15 @@ function describe(event, view) {
   const who = nameOf(view, event.seat);
 
   switch (event.e) {
-    case 'gameStart':
+    case 'gameStart': {
+      // Only claim the lowest card when that is why they start. Ties that run
+      // out of tiebreakers are settled at random, and saying "lowest card"
+      // there asserts something false about that player's hand.
+      const why = event.reason === 'lowestCard' ? ' — lowest card' : '';
       return `${nameOf(view, event.startingSeat)} ${
         event.startingSeat === view.you ? 'start' : 'starts'
-      } — lowest card`;
+      }${why}`;
+    }
 
     case 'played':
       return `${who} played ${event.cards.map(label).join(' ')}`;

@@ -42,8 +42,12 @@ The server binds `0.0.0.0`, so other devices on your wifi can reach it. Find
 your machine's LAN address and share that URL:
 
 ```sh
-ipconfig getifaddr en0        # e.g. 192.168.1.42
+ipconfig getifaddr "$(route -n get default | awk '/interface/{print $2}')"
+# e.g. 192.168.1.42
 ```
+
+(`en0` is the usual Wi-Fi interface but not always — asking the routing table
+which one carries your default route works wherever the uplink happens to be.)
 
 Everyone opens `http://192.168.1.42:3000`. One person creates a room and reads
 out the four-character code; the rest join with it. A room link
@@ -65,8 +69,10 @@ and it has exactly one consequence you must respect when you deploy:
 > random and unreproducible. That is the real cost: not an outage, but an error
 > message that points at the wrong culprit.
 >
-> Both configs below pin the count to one. It is the setting to re-check after
-> any change to a plan or region.
+> Railway defaults to one replica. Fly does not: `fly.toml` sets a *floor*, and
+> `fly deploy` creates a high-availability **pair** unless told otherwise — so
+> the Fly steps below pass `--ha=false` and then set the ceiling explicitly.
+> It is the setting to re-check after any change to a plan or region.
 
 Two things make a breach of that rule visible instead of mystifying:
 
@@ -98,10 +104,15 @@ to the name it chose and `primary_region` to the region closest to the people
 you play with. Then:
 
 ```sh
-fly deploy
+fly deploy --ha=false               # without this, Fly starts TWO machines
 fly scale count 1                   # the ceiling, to match min_machines_running
 fly open
 ```
+
+Do not skip the `--ha=false`, and do not stop at `fly open` because the app
+looks finished. A default `fly deploy` lands you in exactly the split-rooms
+state described above, and the game will look fine to you while your friends
+are told their code does not exist.
 
 `fly.toml` already turns off the two settings that would otherwise break rooms:
 `auto_stop_machines` (Fly stops machines on idle traffic, and a table of

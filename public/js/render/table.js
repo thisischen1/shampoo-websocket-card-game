@@ -8,8 +8,11 @@ import { cardEl, backEl, syncRow } from './card.js';
 import { createSelection } from '../selection.js';
 import { createLog } from './log.js';
 import { createFx, rectOf, landingIn, buzz } from '../fx.js';
-
-const MAX_PLAY = 4;
+// The server rejects a fifth card (engine.js: ERR.TOO_MANY_CARDS). Importing
+// the same constant it validates against means the UI cannot offer a selection
+// the server will refuse — a local `const MAX_PLAY = 4` is the kind of copy
+// that quietly stops matching.
+import { MAX_PLAY } from '/shared/rules.js';
 
 // An opponent's fan is a volume cue, not a tally — the count beside their name
 // is the truth. Past a dozen backs the fan stops meaning anything and starts
