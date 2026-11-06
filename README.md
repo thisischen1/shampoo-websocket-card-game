@@ -112,8 +112,23 @@ experience. No CLI, no config to edit — Railway builds straight from GitHub.
 
 Pushes to `main` redeploy on their own, which is the one thing to keep in mind
 while people are playing: **a redeploy restarts the process and drops every live
-room.** If auto-deploy is not firing, check **Settings → Source** — a failed
-GitHub App authorisation shows up there as an error loading branches.
+room.** Deploy between games.
+
+If auto-deploy never fires, the cause is usually one level below Railway. Step 3
+can connect a repo without GitHub's **Railway app** actually being installed on
+your account, and then Railway can see the repo it was handed but cannot watch
+it for pushes. The symptom is cosmetic and easy to misread: an error loading the
+branch list under **Settings → Source**, and an empty "No repositories found"
+if you try to reconnect. Check `github.com/settings/installations` — if Railway
+is not in that list, install it from `github.com/apps/railway` and grant it
+**only this repository**, not all of them.
+
+Two things worth knowing before you go looking for the problem in Railway:
+
+- A manual **Redeploy** rebuilds the *pinned commit*, not the newest one. It is a
+  restart, not an update, so it will not pull in a fix you just pushed.
+- Installing the app does not backfill. Commits pushed while it was missing
+  generated no webhook, so nothing arrives retroactively — push again.
 
 Railway's logs (the **Deployments** tab) print the boot line with the instance
 id, so you can confirm the id that `/healthz` reports — see **Checking the
