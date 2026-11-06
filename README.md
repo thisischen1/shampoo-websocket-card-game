@@ -127,10 +127,16 @@ raise it). Railway reads the `Procfile` and injects `PORT` itself.
 
 ### Checking the deploy
 
+Replace `<your-domain>` with whatever the platform gave you.
+
 ```sh
-curl https://your-app.fly.dev/healthz        # twice — the instance id must not change
-fly status                                   # one machine, started
+curl https://<your-domain>/healthz     # twice — the instance id must not change
 ```
+
+`/healthz` sends `Cache-Control: no-store` so a proxy cannot answer this from
+cache; a cached reply would show one id no matter how many machines were live,
+which is the opposite of useful. On Fly also run `fly status` and confirm one
+machine, started; on Railway check **Settings → Deploy → Replicas: 1**.
 
 Then, from two devices **on cellular, not your wifi** — that is the only way to
 prove the websocket survives a real network path:

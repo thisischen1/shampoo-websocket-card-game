@@ -29,7 +29,15 @@ export function createApp(options = {}) {
         // `instance` is here to be compared, not read: curl this twice, and if
         // the id changes you are running more than one instance and room codes
         // are silently split across them.
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        //
+        // `no-store` is load-bearing. Every platform puts a proxy in front of
+        // this, and a cached answer would return one id no matter how many
+        // machines are live — turning the one diagnostic that detects the
+        // problem into a confident denial that it exists.
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+        });
         res.end(JSON.stringify({ ok: true, instance: INSTANCE_ID }));
         return;
       }

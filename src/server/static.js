@@ -1,6 +1,7 @@
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { join, normalize, extname, sep } from 'node:path';
+import { pipeline } from 'node:stream/promises';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -85,7 +86,7 @@ export function createStaticHandler(mounts) {
   };
 }
 
-function streamFile(req, res, file, info) {
+async function streamFile(req, res, file, info) {
   const etag = `W/"${info.size}-${Math.floor(info.mtimeMs)}"`;
   const type = MIME[extname(file).toLowerCase()] ?? 'application/octet-stream';
 
@@ -109,6 +110,12 @@ function streamFile(req, res, file, info) {
     return true;
   }
 
-  createReadStream(file).pipe(res);
+  // `pipe` would leave the read stream's 'error' unhandled, and an unhandled
+  // stream error is an uncaught exception — which takes the process down and
+  // every in-memory room with it. The headers are already sent by this point,
+  // so the caller's try/catch cannot help either. `pipeline` owns both ends:
+  // it destroys the stream on a client abort (phones do this constantly) and
+  // routes a read failure here instead of at the top level.
+  await pipeline(createReadStream(file), res).catch(() => res.destroy());
   return true;
 }

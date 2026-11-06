@@ -186,14 +186,20 @@ async function share(code, hintEl) {
     try {
       await navigator.share({ title: 'Shampoo', text: `Join my game: ${code}`, url });
       return;
-    } catch {
-      // Dismissed, or unavailable despite the feature check. Fall through.
+    } catch (err) {
+      // Dismissing the iOS share sheet rejects with AbortError — and it has
+      // already spent the tap's user activation, so falling through to the
+      // clipboard would fail too. The player chose to cancel; say nothing.
+      if (err?.name === 'AbortError') return;
     }
   }
   try {
     await navigator.clipboard.writeText(url);
     flash('link copied');
   } catch {
-    flash(url);
+    // Last resort. Never flash the URL itself: the hint is uppercased,
+    // tiny and unselectable, so a link rendered there cannot be copied or
+    // even read. The code is the one thing worth saying out loud.
+    flash(`copy failed — code ${code}`);
   }
 }
