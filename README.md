@@ -77,7 +77,7 @@ and it has exactly one consequence you must respect when you deploy:
 Two things make a breach of that rule visible instead of mystifying:
 
 ```sh
-curl https://your-app.fly.dev/healthz    # {"ok":true,"instance":"3f9a2c81"}
+curl https://your-app.up.railway.app/healthz    # {"ok":true,"instance":"94f020cc"}
 ```
 
 Call it twice. **A changing `instance` means you are running more than one**, and
@@ -85,12 +85,44 @@ room codes are being split across them. On Fly the server also counts its own
 siblings at boot (one AAAA record per machine on `<app>.internal`, so no API
 token needed) and prints an unmissable error naming the fix if it is not alone.
 It still starts — refusing to boot would turn a degraded game into no game.
+Railway has no equivalent, which is why `/healthz` exists at all.
 
 The code needs nothing added for either platform. It already binds `0.0.0.0`
 and reads `process.env.PORT`, and the browser picks its websocket scheme from
 the page's, so an `https://` deploy connects over `wss://` on its own.
 
+### Railway
+
+This is the path this app is deployed on, so it is the one written from
+experience. No CLI, no config to edit — Railway builds straight from GitHub.
+
+1. Push this repo to GitHub.
+2. [railway.com](https://railway.com) → sign up, authorise GitHub.
+3. **New Project → Deploy from GitHub repo** → pick the repo. It builds
+   immediately, reading the `Procfile` for the start command.
+4. Open the service → **Settings → Networking → Generate Domain**.
+
+   **Take the port Railway offers and do not override it.** It reads the port
+   from the running process, and the server reads `process.env.PORT` — so they
+   already agree. Typing `3000` here points the domain at a port nothing is
+   listening on, and every single connection fails.
+5. **Settings → Deploy → Replicas** — confirm it reads **1**. It is the default,
+   so this is a confirmation, not a change. It is also the one number that
+   breaks room codes if it ever moves, and nothing will warn you.
+
+Pushes to `main` redeploy on their own, which is the one thing to keep in mind
+while people are playing: **a redeploy restarts the process and drops every live
+room.** If auto-deploy is not firing, check **Settings → Source** — a failed
+GitHub App authorisation shows up there as an error loading branches.
+
+Railway's logs (the **Deployments** tab) print the boot line with the instance
+id, so you can confirm the id that `/healthz` reports — see **Checking the
+deploy** below — is the process you just deployed.
+
 ### Fly.io
+
+An alternative. The `fly.toml` in this repo is correct but, unlike the Railway
+path above, has not been exercised end to end.
 
 ```sh
 brew install flyctl
@@ -122,19 +154,6 @@ players thinking looks exactly like idle traffic) and `auto_start_machines`.
 fly logs                            # watch a game happen
 fly status                          # confirm: one machine, started
 ```
-
-### Railway
-
-```sh
-npm i -g @railway/cli
-railway login
-railway init
-railway up
-```
-
-Then in the Railway dashboard: **Settings → Networking → Generate Domain**, and
-**Settings → Deploy → Replicas: 1** (it defaults to 1 — confirm it, and never
-raise it). Railway reads the `Procfile` and injects `PORT` itself.
 
 ### Checking the deploy
 
