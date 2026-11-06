@@ -5,6 +5,7 @@
 // has to guarantee "well-formed", not "legal".
 
 import { LIMITS, PERR } from '../shared/protocol.js';
+import { MAX_PLAY } from '../shared/rules.js';
 import { normalizeCode } from './codes.js';
 
 export class BadInput extends Error {
@@ -51,10 +52,10 @@ export function requireToken(input) {
   return input;
 }
 
-/** A card-id list: 1..4 short uppercase strings, no duplicates. */
+/** A card-id list: 1..MAX_PLAY short uppercase strings, no duplicates. */
 export function requireCardIds(input) {
-  if (!Array.isArray(input) || input.length < 1 || input.length > 4) {
-    bad(PERR.BAD_MESSAGE, 'cardIds must be 1-4 entries');
+  if (!Array.isArray(input) || input.length < 1 || input.length > MAX_PLAY) {
+    bad(PERR.BAD_MESSAGE, `cardIds must be 1-${MAX_PLAY} entries`);
   }
   const out = input.map((id) => {
     if (typeof id !== 'string' || !/^(?:[3-9]|10|[JQKA2])[HSDC]$/.test(id)) {
